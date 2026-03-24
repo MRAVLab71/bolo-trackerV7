@@ -1,0 +1,1636 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Bolo Tracker v7.0 - Control de horas trabajadas con jornadas extra y facturación">
+    <meta name="theme-color" content="#208090">
+    <title>Bolo Tracker v7.0</title>
+    <style>
+        :root {
+            --color-primary: #208090;
+            --color-primary-light: #32B8C6;
+            --color-secondary: #5E5240;
+            --color-success: #208090;
+            --color-warning: #A84B2F;
+            --color-error: #C0152F;
+            --color-bg: #FCFCF9;
+            --color-surface: #FFFFFF;
+            --color-border: #E0E0E0;
+            --color-text: #1F2121;
+            --color-text-light: #666666;
+            --spacing-xs: 4px;
+            --spacing-sm: 8px;
+            --spacing-md: 16px;
+            --spacing-lg: 24px;
+            --spacing-xl: 32px;
+            --radius-sm: 6px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+        }
+
+        [data-theme="dark"] {
+            --color-bg: #1a1a1a;
+            --color-surface: #2d2d2d;
+            --color-border: #404040;
+            --color-text: #e0e0e0;
+            --color-text-light: #a0a0a0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--color-bg);
+            color: var(--color-text);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: var(--spacing-md);
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
+            color: white;
+            padding: var(--spacing-lg);
+            margin-bottom: var(--spacing-lg);
+            border-radius: var(--radius-lg);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-content { flex: 1; }
+        .header h1 { font-size: 1.8rem; margin-bottom: var(--spacing-sm); }
+        .header-actions { display: flex; gap: var(--spacing-md); margin-top: var(--spacing-md); flex-wrap: wrap; }
+
+        .theme-toggle {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            color: white;
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .btn {
+            padding: var(--spacing-sm) var(--spacing-md);
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        .btn-primary { background: var(--color-primary); color: white; }
+        .btn-outline { background: transparent; border: 2px solid var(--color-primary); color: var(--color-primary); }
+        .btn-danger { background: var(--color-error); color: white; }
+        .btn-small { padding: var(--spacing-xs) var(--spacing-sm); font-size: 0.85rem; }
+
+        .tabs { display: flex; gap: var(--spacing-md); border-bottom: 2px solid var(--color-border); margin-bottom: var(--spacing-lg); }
+        .tab-btn { background: none; border: none; padding: var(--spacing-md) var(--spacing-lg); cursor: pointer; color: var(--color-text-light); border-bottom: 3px solid transparent; }
+        .tab-btn.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+
+        .card { background: var(--color-surface); border-radius: var(--radius-lg); padding: var(--spacing-lg); border: 1px solid var(--color-border); margin-bottom: var(--spacing-lg); }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md); border-bottom: 1px solid var(--color-border); padding-bottom: var(--spacing-md); }
+        .card-title { font-size: 1.3rem; font-weight: 600; }
+        .card-subtitle { font-size: 0.9rem; color: var(--color-text-light); margin-top: var(--spacing-sm); }
+
+        .grid { display: grid; gap: var(--spacing-lg); margin-bottom: var(--spacing-lg); }
+        .grid-2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+
+        .form-group { margin-bottom: var(--spacing-lg); }
+        .form-label { display: block; margin-bottom: var(--spacing-sm); font-weight: 500; }
+        .form-input, .form-select, .form-textarea { width: 100%; padding: var(--spacing-sm) var(--spacing-md); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text); }
+
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 1000; align-items: center; justify-content: center; }
+        .modal.active { display: flex; }
+        .modal-content { background: var(--color-surface); border-radius: var(--radius-lg); padding: var(--spacing-lg); max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; margin-bottom: var(--spacing-lg); border-bottom: 1px solid var(--color-border); padding-bottom: var(--spacing-md); }
+        .modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; }
+        .modal-footer { display: flex; gap: var(--spacing-md); margin-top: var(--spacing-lg); justify-content: flex-end; }
+
+        .table-responsive { overflow-x: auto; border-radius: var(--radius-lg); border: 1px solid var(--color-border); }
+        table { width: 100%; border-collapse: collapse; }
+        thead { background: var(--color-bg); border-bottom: 2px solid var(--color-border); }
+        th { padding: var(--spacing-md); text-align: left; font-weight: 600; }
+        td { padding: var(--spacing-md); border-bottom: 1px solid var(--color-border); }
+        tbody tr:hover { background: rgba(32, 128, 144, 0.05); }
+
+        .alert { padding: var(--spacing-md) var(--spacing-lg); border-radius: var(--radius-md); margin-bottom: var(--spacing-lg); display: flex; gap: var(--spacing-md); }
+        .alert-warning { background: rgba(168, 75, 47, 0.1); border-left: 4px solid var(--color-warning); color: #884C2A; }
+
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-md); margin-bottom: var(--spacing-lg); }
+        .stat-card { background: var(--color-surface); padding: var(--spacing-lg); border-radius: var(--radius-lg); border: 1px solid var(--color-border); text-align: center; }
+        .stat-label { color: var(--color-text-light); font-size: 0.9rem; margin-bottom: var(--spacing-sm); }
+        .stat-value { font-size: 2rem; font-weight: 700; color: var(--color-primary); }
+
+        .badge { display: inline-block; padding: var(--spacing-xs) var(--spacing-sm); background: var(--color-primary); color: white; border-radius: 9999px; font-size: 0.85rem; font-weight: 600; }
+        .badge-error { background: var(--color-error); }
+
+        .warning-row { background: rgba(192, 21, 47, 0.05) !important; }
+
+        .form-checkbox { display: flex; align-items: center; gap: var(--spacing-sm); margin-bottom: var(--spacing-md); }
+
+        /* ============================================================================ */
+        /* RESPONSIVE DESIGN - TABLET (768px y inferior) */
+        /* ============================================================================ */
+        @media (max-width: 768px) {
+            :root {
+                --spacing-xs: 6px;
+                --spacing-sm: 10px;
+                --spacing-md: 14px;
+                --spacing-lg: 20px;
+                --spacing-xl: 28px;
+                --font-size-base: 16px;
+            }
+
+            .container {
+                padding: var(--spacing-sm);
+            }
+
+            .header {
+                flex-direction: column;
+                gap: var(--spacing-md);
+                padding: var(--spacing-lg);
+            }
+
+            .header h1 {
+                font-size: 1.5rem;
+            }
+
+            .header-content {
+                margin-bottom: var(--spacing-sm);
+            }
+
+            .header-actions {
+                width: 100%;
+                flex-direction: column;
+            }
+
+            .header-actions .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .theme-toggle {
+                width: 100%;
+            }
+
+            .tabs {
+                flex-wrap: wrap;
+                gap: var(--spacing-sm);
+            }
+
+            .tab-btn {
+                padding: var(--spacing-md) var(--spacing-lg);
+                font-size: 0.95rem;
+                flex: 1;
+            }
+
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+
+            .stats {
+                grid-template-columns: repeat(2, 1fr);
+                gap: var(--spacing-sm);
+            }
+
+            .stat-card {
+                padding: var(--spacing-md);
+            }
+
+            .stat-label {
+                font-size: 0.8rem;
+            }
+
+            .stat-value {
+                font-size: 1.5rem;
+            }
+
+            .btn {
+                padding: var(--spacing-sm) var(--spacing-md);
+                min-height: 44px;
+                font-size: 0.95rem;
+                width: 100%;
+            }
+
+            .btn-small {
+                width: auto;
+                padding: var(--spacing-xs) var(--spacing-sm);
+                min-height: 36px;
+            }
+
+            .btn-primary, .btn-outline, .btn-danger {
+                width: 100%;
+            }
+
+            .card {
+                padding: var(--spacing-md);
+                margin-bottom: var(--spacing-md);
+            }
+
+            .card-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: var(--spacing-md);
+            }
+
+            .card-title {
+                font-size: 1.1rem;
+            }
+
+            .form-group {
+                margin-bottom: var(--spacing-md);
+            }
+
+            .form-label {
+                font-size: 0.95rem;
+                margin-bottom: var(--spacing-xs);
+            }
+
+            .form-input, .form-select, .form-textarea {
+                padding: var(--spacing-sm) var(--spacing-md);
+                font-size: 16px;
+                min-height: 44px;
+            }
+
+            .modal-content {
+                width: 95%;
+                max-width: 100%;
+                border-radius: var(--radius-md);
+                max-height: 95vh;
+            }
+
+            .table-responsive {
+                font-size: 0.85rem;
+            }
+
+            th, td {
+                padding: var(--spacing-sm);
+                font-size: 0.85rem;
+            }
+
+            .badge {
+                padding: var(--spacing-xs) var(--spacing-xs);
+                font-size: 0.75rem;
+            }
+
+            .alert {
+                padding: var(--spacing-md);
+                font-size: 0.9rem;
+            }
+        }
+
+        /* ============================================================================ */
+        /* RESPONSIVE DESIGN - MOBILE (480px y inferior) */
+        /* ============================================================================ */
+        @media (max-width: 480px) {
+            :root {
+                --spacing-xs: 4px;
+                --spacing-sm: 8px;
+                --spacing-md: 12px;
+                --spacing-lg: 16px;
+                --spacing-xl: 20px;
+                --font-size-base: 14px;
+            }
+
+            .container {
+                padding: var(--spacing-sm);
+            }
+
+            .header {
+                padding: var(--spacing-md);
+            }
+
+            .header h1 {
+                font-size: 1.3rem;
+                margin-bottom: var(--spacing-xs);
+            }
+
+            .header p {
+                font-size: 0.85rem;
+                margin: var(--spacing-xs) 0;
+            }
+
+            .header-actions {
+                gap: var(--spacing-sm);
+            }
+
+            .header-actions .btn {
+                padding: var(--spacing-sm) var(--spacing-md);
+                font-size: 0.85rem;
+                min-height: 40px;
+                flex: 1;
+            }
+
+            .theme-toggle {
+                padding: var(--spacing-sm) var(--spacing-md);
+                font-size: 0.85rem;
+                min-height: 40px;
+            }
+
+            .tabs {
+                gap: var(--spacing-xs);
+                margin-bottom: var(--spacing-md);
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .tab-btn {
+                padding: var(--spacing-md) var(--spacing-md);
+                font-size: 0.85rem;
+                white-space: nowrap;
+                flex-shrink: 0;
+            }
+
+            .grid-2 {
+                grid-template-columns: 1fr;
+                gap: var(--spacing-md);
+            }
+
+            .stats {
+                grid-template-columns: repeat(2, 1fr);
+                gap: var(--spacing-sm);
+            }
+
+            .stat-card {
+                padding: var(--spacing-md);
+            }
+
+            .stat-label {
+                font-size: 0.75rem;
+            }
+
+            .stat-value {
+                font-size: 1.3rem;
+            }
+
+            .card {
+                padding: var(--spacing-md);
+                margin-bottom: var(--spacing-md);
+                border-radius: var(--radius-md);
+            }
+
+            .card-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: var(--spacing-sm);
+                margin-bottom: var(--spacing-sm);
+            }
+
+            .card-title {
+                font-size: 1rem;
+            }
+
+            .card-subtitle {
+                font-size: 0.8rem;
+            }
+
+            .badge {
+                padding: 2px 6px;
+                font-size: 0.7rem;
+            }
+
+            .btn {
+                padding: var(--spacing-sm) var(--spacing-md);
+                min-height: 44px;
+                font-size: 0.9rem;
+                width: 100%;
+                margin-bottom: var(--spacing-xs);
+            }
+
+            .btn-small {
+                width: auto;
+                padding: var(--spacing-xs) var(--spacing-sm);
+                min-height: 36px;
+                font-size: 0.8rem;
+            }
+
+            .form-group {
+                margin-bottom: var(--spacing-md);
+            }
+
+            .form-label {
+                font-size: 0.9rem;
+                margin-bottom: var(--spacing-xs);
+            }
+
+            .form-input, .form-select, .form-textarea {
+                padding: var(--spacing-sm) var(--spacing-md);
+                font-size: 16px;
+                min-height: 44px;
+                border-radius: var(--radius-md);
+            }
+
+            .form-checkbox {
+                margin-bottom: var(--spacing-md);
+            }
+
+            .form-checkbox label {
+                font-size: 0.9rem;
+            }
+
+            .modal {
+                padding: var(--spacing-sm);
+            }
+
+            .modal-content {
+                width: 100%;
+                border-radius: var(--radius-md);
+                padding: var(--spacing-md);
+                max-height: 90vh;
+            }
+
+            .modal-header {
+                margin-bottom: var(--spacing-md);
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .modal-header h2 {
+                font-size: 1.1rem;
+                margin-bottom: var(--spacing-sm);
+                width: 100%;
+            }
+
+            .modal-close {
+                align-self: flex-end;
+                margin-top: -32px;
+            }
+
+            .modal-footer {
+                flex-direction: column-reverse;
+                gap: var(--spacing-sm);
+            }
+
+            .modal-footer .btn {
+                width: 100%;
+            }
+
+            .table-responsive {
+                font-size: 0.75rem;
+            }
+
+            th, td {
+                padding: var(--spacing-xs) var(--spacing-sm);
+                font-size: 0.75rem;
+            }
+
+            .alert {
+                padding: var(--spacing-md);
+                gap: var(--spacing-sm);
+                font-size: 0.85rem;
+            }
+
+            .alert-warning {
+                border-left-width: 3px;
+            }
+
+            /* Fix para inputs en móvil (evitar zoom) */
+            input[type="text"],
+            input[type="date"],
+            input[type="time"],
+            select,
+            textarea {
+                font-size: 16px !important;
+            }
+        }
+
+        /* ============================================================================ */
+        /* RESPONSIVE DESIGN - LANDSCAPE MOBILE (alturas limitadas) */
+        /* ============================================================================ */
+        @media (max-height: 500px) {
+            .header {
+                padding: var(--spacing-md);
+                margin-bottom: var(--spacing-sm);
+            }
+
+            .header h1 {
+                font-size: 1.2rem;
+                margin-bottom: 2px;
+            }
+
+            .header p {
+                display: none;
+            }
+
+            .modal-content {
+                max-height: 95vh;
+                padding: var(--spacing-md);
+            }
+
+            .tabs {
+                margin-bottom: var(--spacing-sm);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script>
+        // ============================================================================
+        // ESTADO Y PERSISTENCIA
+        // ============================================================================
+        const state = {
+            bolos: [],
+            jornadas: {},
+            theme: 'light',
+            currentView: 'list',
+            currentBoloId: null,
+            currentTab: 'bolos'
+        };
+
+        const storage = {
+            saveState() {
+                localStorage.setItem('boloTrackerState', JSON.stringify({
+                    bolos: state.bolos,
+                    jornadas: state.jornadas,
+                    theme: state.theme,
+                    currentView: state.currentView,
+                    currentBoloId: state.currentBoloId,
+                    currentTab: state.currentTab
+                }));
+            },
+
+            loadState() {
+                const saved = localStorage.getItem('boloTrackerState');
+                if (saved) {
+                    try {
+                        const data = JSON.parse(saved);
+                        state.bolos = data.bolos || [];
+                        state.jornadas = data.jornadas || {};
+                        state.theme = data.theme || 'light';
+                        state.currentView = data.currentView || 'list';
+                        state.currentBoloId = data.currentBoloId || null;
+                        state.currentTab = data.currentTab || 'bolos';
+                    } catch (e) {
+                        console.error('Error loading state:', e);
+                    }
+                }
+            }
+        };
+
+        // ============================================================================
+        // TEMA
+        // ============================================================================
+        const theme = {
+            init() {
+                document.documentElement.setAttribute('data-theme', state.theme);
+            },
+
+            toggle() {
+                state.theme = state.theme === 'light' ? 'dark' : 'light';
+                document.documentElement.setAttribute('data-theme', state.theme);
+                storage.saveState();
+                render();
+            }
+        };
+
+        // ============================================================================
+        // CÁLCULOS
+        // ============================================================================
+        const calculations = {
+            timeToMinutes(timeStr) {
+                const [h, m] = timeStr.split(':').map(Number);
+                return h * 60 + m;
+            },
+
+            minutesToHours(minutes) {
+                const h = Math.floor(minutes / 60);
+                const m = minutes % 60;
+                return `${h}h ${m}min`;
+            },
+
+            normalizeWorkedMinutes(entrada, salida) {
+                const entradaMin = this.timeToMinutes(entrada);
+                let salidaMin = this.timeToMinutes(salida);
+
+                if (salidaMin < entradaMin) {
+                    salidaMin += 24 * 60;
+                }
+
+                return salidaMin - entradaMin;
+            },
+
+            crossesMidnight(entrada, salida) {
+                return this.timeToMinutes(salida) < this.timeToMinutes(entrada);
+            },
+
+            calculateJornada(entrada, salida, tipoJornada) {
+                const trabajados = this.normalizeWorkedMinutes(entrada, salida);
+                const estandar = tipoJornada * 60;
+                
+                let extras = 0;
+                if (trabajados > estandar) {
+                    const extrasSinCortesia = trabajados - estandar - 10;
+                    if (extrasSinCortesia > 0) {
+                        extras = Math.ceil(extrasSinCortesia / 60) * 60;
+                    }
+                }
+
+                return {
+                    minutosTrabajados: trabajados,
+                    minutosExtras: extras,
+                    horasTrabajadas: this.minutesToHours(trabajados),
+                    horasExtras: this.minutesToHours(extras),
+                    cruzaMedianoche: this.crossesMidnight(entrada, salida)
+                };
+            },
+
+            calculateDescanso(fecha1, horaEntradaJ1, horaSalidaJ1, fecha2, horaEntradaJ2) {
+                const inicioJ1 = new Date(`${fecha1}T${horaEntradaJ1}`);
+                const finJ1 = new Date(`${fecha1}T${horaSalidaJ1}`);
+                const inicioJ2 = new Date(`${fecha2}T${horaEntradaJ2}`);
+
+                if (this.crossesMidnight(horaEntradaJ1, horaSalidaJ1)) {
+                    finJ1.setDate(finJ1.getDate() + 1);
+                }
+
+                const diff = (inicioJ2 - finJ1) / (1000 * 60);
+                return diff / 60;
+            },
+
+            formatDate(date) {
+                return date.toISOString().split('T')[0];
+            },
+
+            formatDateES(dateStr) {
+                const date = new Date(dateStr);
+                const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' };
+                return date.toLocaleDateString('es-ES', options);
+            }
+        };
+
+        // ============================================================================
+        // PROCESAMIENTO CORE - PSEUDOCÓDIGO COMPLETO
+        // ============================================================================
+        function procesarBolo(boloId) {
+            const bolo = state.bolos.find(b => b.id === boloId);
+            if (!bolo) return;
+
+            const jornadasBolo = state.jornadas[boloId] || [];
+            if (jornadasBolo.length === 0) return;
+
+            // PASO 1: Reiniciar contadores
+            jornadasBolo.forEach(jornada => {
+                jornada.jornadasExtras = 0;
+                jornada.jornadasExtrasPorDescanso = 0;
+                jornada.jornadasExtrasPorAcumuladas = 0;
+                jornada.horasExtraAFacturar = 0;
+                jornada.descanso_insuficiente = false;
+                jornada.aviso_descanso = null;
+            });
+
+            // PASO 2: Aplicar regla de descanso (12h mínimo)
+            // Itera TODAS las transiciones entre jornadas consecutivas
+            if (bolo.regla_descanso) {
+                for (let i = 1; i < jornadasBolo.length; i++) {
+                    const jornada_anterior = jornadasBolo[i - 1];
+                    const jornada_actual = jornadasBolo[i];
+
+                    // Solo evaluar si AMBAS jornadas tienen horas registradas
+                    if (jornada_anterior.hora_entrada && 
+                        jornada_anterior.hora_salida &&
+                        jornada_actual.hora_entrada && 
+                        jornada_actual.hora_salida) {
+
+                        const descanso_horas = calculations.calculateDescanso(
+                            jornada_anterior.fecha,
+                            jornada_anterior.hora_entrada,
+                            jornada_anterior.hora_salida,
+                            jornada_actual.fecha,
+                            jornada_actual.hora_entrada
+                        );
+
+                        // SI descanso < 12h
+                        if (descanso_horas < 12) {
+                            // Marcar AMBAS como afectadas
+                            jornada_anterior.descanso_insuficiente = true;
+                            jornada_actual.descanso_insuficiente = true;
+                            
+                            // La jornada ACTUAL recibe +1 JE por descanso insuficiente
+                            jornada_actual.jornadasExtrasPorDescanso = 1;
+                            
+                            // Guardar aviso EN la jornada actual para mostrar entre el par
+                            jornada_actual.aviso_descanso = {
+                                fecha_anterior: jornada_anterior.fecha,
+                                fecha_actual: jornada_actual.fecha,
+                                descanso: descanso_horas.toFixed(2)
+                            };
+                        }
+                    }
+                }
+            }
+
+            // PASO 3: Calcular extras individuales por jornada
+            let totalExtrasAcumuladas = 0;
+
+            jornadasBolo.forEach(jornada => {
+                if (jornada.hora_entrada && jornada.hora_salida) {
+                    const calc = calculations.calculateJornada(
+                        jornada.hora_entrada,
+                        jornada.hora_salida,
+                        bolo.tipo_jornada
+                    );
+
+                    jornada.minutos_trabajados = calc.minutosTrabajados;
+                    jornada.minutosExtrasIndividuales = calc.minutosExtras;
+                    totalExtrasAcumuladas += calc.minutosExtras;
+                } else {
+                    jornada.minutos_trabajados = 0;
+                    jornada.minutosExtrasIndividuales = 0;
+                }
+            });
+
+            // PASO 4: Aplicar regla de jornadas extra (≥4h = 1 JE)
+            const UMBRAL = 240;
+
+            if (bolo.regla_jornada_extra) {
+                jornadasBolo.forEach(jornada => {
+                    if (jornada.minutosExtrasIndividuales >= UMBRAL) {
+                        jornada.jornadasExtrasPorAcumuladas = 1;
+                        jornada.horasExtraAFacturar = 0;
+                        totalExtrasAcumuladas -= UMBRAL;
+                    } else if (jornada.minutosExtrasIndividuales > 0) {
+                        jornada.horasExtraAFacturar = jornada.minutosExtrasIndividuales;
+                    }
+                });
+            } else {
+                jornadasBolo.forEach(jornada => {
+                    if (jornada.minutosExtrasIndividuales > 0) {
+                        jornada.horasExtraAFacturar = jornada.minutosExtrasIndividuales;
+                    }
+                });
+            }
+
+            // PASO 5: Calcular totales
+            bolo.minutosExtrasGlobalBolsa = totalExtrasAcumuladas;
+
+            jornadasBolo.forEach(jornada => {
+                jornada.jornadasExtras = (
+                    jornada.jornadasExtrasPorDescanso + 
+                    jornada.jornadasExtrasPorAcumuladas
+                );
+            });
+
+            storage.saveState();
+        }
+
+        // ============================================================================
+        // RENDER
+        // ============================================================================
+        function render() {
+            const root = document.getElementById('root');
+
+            let content = '';
+            if (state.currentView === 'detail' && state.currentBoloId && state.bolos.some(b => b.id === state.currentBoloId)) {
+                content = renderBoloDetail(state.currentBoloId);
+            } else {
+                state.currentView = 'list';
+                state.currentBoloId = null;
+                content = `
+                    <div class="container">
+                        <div class="tabs">
+                            <button class="tab-btn ${state.currentTab === 'bolos' ? 'active' : ''}" data-tab="bolos" onclick="app.switchTab('bolos')">Mis Bolos</button>
+                            <button class="tab-btn ${state.currentTab === 'estadisticas' ? 'active' : ''}" data-tab="estadisticas" onclick="app.switchTab('estadisticas')">Estadísticas</button>
+                        </div>
+
+                        <div id="tab-bolos" class="tab-content" style="display: ${state.currentTab === 'bolos' ? 'block' : 'none'};">
+                            ${renderBolos()}
+                        </div>
+
+                        <div id="tab-estadisticas" class="tab-content" style="display: ${state.currentTab === 'estadisticas' ? 'block' : 'none'};">
+                            ${renderEstadisticas()}
+                        </div>
+                    </div>
+                `;
+            }
+
+            root.innerHTML = `
+                <div class="header">
+                    <div class="header-content">
+                        <h1>🏗️ Bolo Tracker v7.0</h1>
+                        <p>Control inteligente de horas, jornadas extra y facturación</p>
+                        <div class="header-actions">
+                            <button class="btn btn-primary" onclick="app.openBoloModal()">✨ Crear Nuevo Bolo</button>
+                            <button class="btn btn-outline" onclick="app.switchTab('estadisticas')">📊 Estadísticas</button>
+                            <button class="btn btn-outline" onclick="app.exportBackup()">💾 Backup JSON</button>
+                            <button class="btn btn-outline" onclick="app.triggerImportBackup()">📂 Importar Backup</button>
+                        </div>
+                    </div>
+                    <button class="theme-toggle" onclick="app.toggleTheme()" title="Cambiar tema">
+                        ${state.theme === 'light' ? '🌙 Dark' : '☀️ Light'}
+                    </button>
+                </div>
+
+                ${content}
+
+                ${renderBoloModal()}
+                ${renderJornadaModal()}
+                <input type="file" id="backupImportInput" accept="application/json,.json" style="display:none" onchange="app.importBackup(event)">
+            `;
+        }
+
+        function renderBolos() {
+            const activos = state.bolos.filter(b => b.estado === 'activo');
+            
+            if (activos.length === 0) {
+                return `
+                    <div class="card">
+                        <div style="text-align: center; padding: 40px;">
+                            <div style="font-size: 3rem; margin-bottom: 16px;">📋</div>
+                            <h3>No tienes bolos activos</h3>
+                            <p>Crea tu primer bolo para comenzar</p>
+                            <button class="btn btn-primary" onclick="app.openBoloModal()" style="margin-top: 16px;">Crear Primer Bolo</button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            let html = '<div class="grid grid-2">';
+
+            activos.forEach(bolo => {
+                const jornadas = state.jornadas[bolo.id] || [];
+                const totalMinutos = jornadas.reduce((sum, j) => sum + (j.minutos_trabajados || 0), 0);
+                const totalExtras = jornadas.reduce((sum, j) => sum + (j.minutosExtrasIndividuales || 0), 0);
+                const totalJE = jornadas.reduce((sum, j) => sum + (j.jornadasExtras || 0), 0);
+                const totalFacturar = jornadas.reduce((sum, j) => sum + (j.horasExtraAFacturar || 0), 0);
+                const descansoInsuficiente = jornadas.filter(j => j.descanso_insuficiente).length;
+
+                html += `
+                    <div class="card">
+                        <div class="card-header">
+                            <div>
+                                <h3 class="card-title">${bolo.nombre}</h3>
+                                <p class="card-subtitle">${calculations.formatDateES(bolo.fecha_inicio)} → ${calculations.formatDateES(bolo.fecha_fin)}</p>
+                            </div>
+                            <span class="badge">${bolo.tipo_jornada}h</span>
+                        </div>
+
+                        <div class="stats">
+                            <div class="stat-card">
+                                <div class="stat-label">Horas Trabajadas</div>
+                                <div class="stat-value">${calculations.minutesToHours(totalMinutos)}</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Extras Puras</div>
+                                <div class="stat-value" style="color: var(--color-warning);">${calculations.minutesToHours(totalExtras)}</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Jornadas Extra</div>
+                                <div class="stat-value">${totalJE}</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Horas a Facturar</div>
+                                <div class="stat-value" style="color: var(--color-primary);">${calculations.minutesToHours(totalFacturar)}</div>
+                            </div>
+                        </div>
+
+                        ${descansoInsuficiente > 0 ? `
+                            <div class="alert alert-warning">
+                                ⚠️ <strong>${descansoInsuficiente}</strong> jornada(s) afectada(s) por descanso &lt;12h
+                            </div>
+                        ` : ''}
+
+                        <div style="display: flex; gap: 8px; margin-top: 16px;">
+                            <button class="btn btn-primary" onclick="app.openBoloDetail(${bolo.id})">Ver Detalles</button>
+                            <button class="btn btn-outline" onclick="app.editBolo(${bolo.id})">Editar</button>
+                            <button class="btn btn-danger btn-small" onclick="app.deleteBolo(${bolo.id})">Eliminar</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            return html;
+        }
+
+        function renderBoloDetail(boloId) {
+            const bolo = state.bolos.find(b => b.id === boloId);
+            const jornadas = state.jornadas[boloId] || [];
+
+            if (!bolo) {
+                state.currentView = 'list';
+                state.currentBoloId = null;
+                return renderBolos();
+            }
+
+            return `
+                <div class="container">
+                    <div class="card">
+                        <div class="card-header">
+                            <div>
+                                <h2 class="card-title">${bolo.nombre}</h2>
+                                <p class="card-subtitle">Período: ${calculations.formatDateES(bolo.fecha_inicio)} → ${calculations.formatDateES(bolo.fecha_fin)}</p>
+                            </div>
+                            <button class="btn btn-outline" onclick="app.goHome()">← Volver</button>
+                        </div>
+
+                        <div class="stats">
+                            <div class="stat-card">
+                                <div class="stat-label">Tipo Jornada</div>
+                                <div class="stat-value">${bolo.tipo_jornada}h</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Jornadas Completas</div>
+                                <div class="stat-value">${jornadas.filter(j => j.hora_entrada).length}/${jornadas.length}</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Total Horas</div>
+                                <div class="stat-value">${calculations.minutesToHours(jornadas.reduce((s, j) => s + (j.minutos_trabajados || 0), 0))}</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Total JE</div>
+                                <div class="stat-value">${jornadas.reduce((s, j) => s + (j.jornadasExtras || 0), 0)}</div>
+                            </div>
+                        </div>
+
+                        <h3 style="margin: 24px 0 16px 0; border-bottom: 2px solid var(--color-border); padding-bottom: 8px;">Jornadas Detalladas</h3>
+
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Entrada</th>
+                                        <th>Salida</th>
+                                        <th>Horas</th>
+                                        <th>Extras Ind.</th>
+                                        <th>A Facturar</th>
+                                        <th>JE Descanso</th>
+                                        <th>JE Acum.</th>
+                                        <th>Total JE</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${jornadas.map((jornada) => {
+                                        const trClass = jornada.descanso_insuficiente ? 'warning-row' : '';
+                                        const salidaLabel = jornada.hora_salida
+                                            ? `${jornada.hora_salida}${jornada.hora_entrada && calculations.crossesMidnight(jornada.hora_entrada, jornada.hora_salida) ? ' (+1d)' : ''}`
+                                            : '-';
+                                        
+                                        let filaHTML = `
+                                            <tr class="${trClass}">
+                                                <td><strong>${calculations.formatDateES(jornada.fecha)}</strong></td>
+                                                <td>${jornada.hora_entrada || '-'}</td>
+                                                <td>${salidaLabel}</td>
+                                                <td>${jornada.hora_entrada ? calculations.minutesToHours(jornada.minutos_trabajados) : '-'}</td>
+                                                <td><span style="color: var(--color-warning); font-weight: 600;">${jornada.minutosExtrasIndividuales > 0 ? calculations.minutesToHours(jornada.minutosExtrasIndividuales) : '-'}</span></td>
+                                                <td><span style="color: var(--color-primary); font-weight: 600;">${jornada.horasExtraAFacturar > 0 ? calculations.minutesToHours(jornada.horasExtraAFacturar) : '-'}</span></td>
+                                                <td>${jornada.jornadasExtrasPorDescanso > 0 ? `<span class="badge badge-error">${jornada.jornadasExtrasPorDescanso}</span>` : '-'}</td>
+                                                <td>${jornada.jornadasExtrasPorAcumuladas > 0 ? `<span class="badge">${jornada.jornadasExtrasPorAcumuladas}</span>` : '-'}</td>
+                                                <td><strong>${jornada.jornadasExtras > 0 ? jornada.jornadasExtras : '-'}</strong></td>
+                                                <td>
+                                                    <button class="btn btn-small btn-primary" onclick="setTimeout(() => app.openJornadaModal('${jornada.id}', ${boloId}), 100)">Editar</button>
+                                                </td>
+                                            </tr>
+                                        `;
+
+                                        if (jornada.aviso_descanso) {
+                                            filaHTML += `
+                                                <tr class="warning-row">
+                                                    <td colspan="10" style="text-align: center; color: var(--color-error); font-weight: 500; padding: 12px;">
+                                                        ⚠️ Descanso insuficiente (&lt;12h) entre ${calculations.formatDateES(jornada.aviso_descanso.fecha_anterior)} y ${calculations.formatDateES(jornada.aviso_descanso.fecha_actual)} (${jornada.aviso_descanso.descanso}h)
+                                                    </td>
+                                                </tr>
+                                            `;
+                                        }
+
+                                        return filaHTML;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div style="margin-top: 24px; text-align: right; display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap;">
+                            <button class="btn btn-outline" onclick="app.exportBoloCSV(${boloId})">📥 Descargar CSV</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderEstadisticas() {
+            const filtro = document.getElementById('filtroEstado')?.value || 'todos';
+            
+            let bolosFiltrados = state.bolos;
+            if (filtro === 'activos') bolosFiltrados = state.bolos.filter(b => b.estado === 'activo');
+            else if (filtro === 'completados') bolosFiltrados = state.bolos.filter(b => b.estado === 'completado');
+
+            let totalJornadas = 0, totalMin = 0, totalJE = 0, totalFacturar = 0, totalDescanso = 0;
+
+            bolosFiltrados.forEach(bolo => {
+                const jornadas = state.jornadas[bolo.id] || [];
+                totalJornadas += jornadas.filter(j => j.hora_entrada).length;
+                totalMin += jornadas.reduce((s, j) => s + (j.minutos_trabajados || 0), 0);
+                totalJE += jornadas.reduce((s, j) => s + (j.jornadasExtras || 0), 0);
+                totalFacturar += jornadas.reduce((s, j) => s + (j.horasExtraAFacturar || 0), 0);
+                totalDescanso += jornadas.filter(j => j.descanso_insuficiente).length;
+            });
+
+            return `
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">📊 Resumen Global</h2>
+                    </div>
+                    
+                    <div style="margin-bottom: 24px; padding: 16px; background: rgba(32, 128, 144, 0.05); border-radius: 8px;">
+                        <label class="form-label">🔍 Filtrar por Estado:</label>
+                        <select id="filtroEstado" class="form-select" onchange="app.actualizarEstadisticas()" style="max-width: 250px;">
+                            <option value="todos">📋 Todos</option>
+                            <option value="activos">✅ Solo Activos</option>
+                            <option value="completados">✓ Solo Completados</option>
+                        </select>
+                    </div>
+
+                    <div class="stats">
+                        <div class="stat-card">
+                            <div class="stat-label">Bolos en Filtro</div>
+                            <div class="stat-value">${bolosFiltrados.length}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Jornadas Completas</div>
+                            <div class="stat-value">${totalJornadas}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Total Horas</div>
+                            <div class="stat-value">${calculations.minutesToHours(totalMin)}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Total JE</div>
+                            <div class="stat-value" style="color: var(--color-warning);">${totalJE}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Total a Facturar</div>
+                            <div class="stat-value" style="color: var(--color-primary);">${calculations.minutesToHours(totalFacturar)}</div>
+                        </div>
+                    </div>
+
+                    ${totalDescanso > 0 ? `
+                        <div class="alert alert-warning" style="margin: 16px 0;">
+                            ⚠️ <strong>${totalDescanso}</strong> jornada(s) afectada(s) por descanso &lt;12h
+                        </div>
+                    ` : ''}
+
+                    <h3 style="margin: 24px 0 16px 0; border-bottom: 2px solid var(--color-border); padding-bottom: 8px;">📋 Bolos</h3>
+
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr><th>Bolo</th><th>Período</th><th>Jornadas</th><th>Horas</th><th>JE</th><th>A Facturar</th><th>Estado</th><th>Acciones</th></tr>
+                            </thead>
+                            <tbody>
+                                ${bolosFiltrados.length === 0 ? `<tr><td colspan="8" style="text-align: center; padding: 24px;">📭 Sin bolos</td></tr>` : bolosFiltrados.map(bolo => {
+                                    const jornadas = state.jornadas[bolo.id] || [];
+                                    const jornadasComp = jornadas.filter(j => j.hora_entrada).length;
+                                    const totalM = jornadas.reduce((s, j) => s + (j.minutos_trabajados || 0), 0);
+                                    const totalJ = jornadas.reduce((s, j) => s + (j.jornadasExtras || 0), 0);
+                                    const totalF = jornadas.reduce((s, j) => s + (j.horasExtraAFacturar || 0), 0);
+
+                                    return `
+                                        <tr>
+                                            <td><strong>${bolo.nombre}</strong></td>
+                                            <td><small>${calculations.formatDateES(bolo.fecha_inicio)} → ${calculations.formatDateES(bolo.fecha_fin)}</small></td>
+                                            <td><strong>${jornadasComp}/${jornadas.length}</strong></td>
+                                            <td>${calculations.minutesToHours(totalM)}</td>
+                                            <td><strong>${totalJ}</strong></td>
+                                            <td>${calculations.minutesToHours(totalF)}</td>
+                                            <td>
+                                                <button class="btn btn-small" onclick="app.toggleEstadoBolo(${bolo.id})" style="background: ${bolo.estado === 'activo' ? 'var(--color-success)' : '#999'}; color: white; border: none;">
+                                                    ${bolo.estado === 'activo' ? '✅ Activo' : '✓ Completado'}
+                                                </button>
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-small btn-primary" onclick="app.openBoloDetail(${bolo.id})">Ver</button>
+                                            </td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderBoloModal() {
+            return `
+                <div id="boloModal" class="modal">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h2 id="boloModalTitle">Crear Nuevo Bolo</h2>
+                            <button class="modal-close" onclick="app.closeBoloModal()">✕</button>
+                        </div>
+                        <form onsubmit="app.saveBolo(event)">
+                            <input type="hidden" id="editingBoloId">
+                            <div class="form-group">
+                                <label class="form-label">Nombre del Bolo *</label>
+                                <input type="text" id="boloNombre" class="form-input" placeholder="Ej: Reforma Casa García" required autocomplete="off">
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Tipo de Jornada *</label>
+                                <select id="boloTipo" class="form-select" required>
+                                    <option value="10">10 horas</option>
+                                    <option value="9">9 horas</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Fecha Inicio *</label>
+                                <input type="date" id="boloFechaInicio" class="form-input" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Fecha Fin *</label>
+                                <input type="date" id="boloFechaFin" class="form-input" required>
+                            </div>
+
+                            <div class="form-checkbox">
+                                <input type="checkbox" id="reglaDescanso" checked>
+                                <label style="margin-bottom: 0;">Descanso mínimo 12h ⏰</label>
+                            </div>
+
+                            <div class="form-checkbox">
+                                <input type="checkbox" id="reglaJornadaExtra" checked>
+                                <label style="margin-bottom: 0;">Jornadas Extra ≥4h 📈</label>
+                            </div>
+
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline" onclick="app.closeBoloModal()">Cancelar</button>
+                                <button type="submit" id="boloSubmitBtn" class="btn btn-primary">Crear</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderJornadaModal() {
+            return `
+                <div id="jornadaModal" class="modal">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h2>Editar Jornada</h2>
+                            <button class="modal-close" onclick="app.closeJornadaModal()">✕</button>
+                        </div>
+                        <form onsubmit="app.saveJornada(event)">
+                            <input type="hidden" id="jornadaId">
+                            <input type="hidden" id="boloIdHidden">
+
+                            <div class="form-group">
+                                <label class="form-label">Fecha</label>
+                                <input type="date" id="jornadaFecha" class="form-input" readonly>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                                <div class="form-group">
+                                    <label class="form-label">Hora Entrada *</label>
+                                    <input type="time" id="jornadaEntrada" class="form-input" required onchange="app.updateJornadaCalculos()" inputmode="time">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Hora Salida *</label>
+                                    <input type="time" id="jornadaSalida" class="form-input" required onchange="app.updateJornadaCalculos()" inputmode="time">
+                                </div>
+                            </div>
+
+                            <div id="jornadaCalculos"></div>
+
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-danger btn-small" onclick="app.deleteJornada()">Eliminar</button>
+                                <button type="button" class="btn btn-outline" onclick="app.closeJornadaModal()">Cancelar</button>
+                                <button type="submit" class="btn btn-primary">Guardar</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+        }
+
+        // ============================================================================
+        // APP CONTROLLER
+        // ============================================================================
+        const app = {
+            init() {
+                storage.loadState();
+                if (state.currentView === 'detail' && (!state.currentBoloId || !state.bolos.some(b => b.id === state.currentBoloId))) {
+                    state.currentView = 'list';
+                    state.currentBoloId = null;
+                }
+                theme.init();
+                render();
+            },
+
+            switchTab(tabName) {
+                state.currentView = 'list';
+                state.currentBoloId = null;
+                state.currentTab = tabName;
+                storage.saveState();
+                render();
+            },
+
+            toggleTheme() {
+                theme.toggle();
+            },
+
+            actualizarEstadisticas() {
+                document.getElementById('tab-estadisticas').innerHTML = renderEstadisticas();
+            },
+
+            toggleEstadoBolo(boloId) {
+                const bolo = state.bolos.find(b => b.id === boloId);
+                if (bolo) {
+                    bolo.estado = bolo.estado === 'activo' ? 'completado' : 'activo';
+                    storage.saveState();
+                    this.actualizarEstadisticas();
+                }
+            },
+
+            resetBoloForm() {
+                document.getElementById('editingBoloId').value = '';
+                document.getElementById('boloModalTitle').textContent = 'Crear Nuevo Bolo';
+                document.getElementById('boloSubmitBtn').textContent = 'Crear';
+                document.getElementById('boloNombre').value = '';
+                document.getElementById('boloTipo').value = '10';
+                document.getElementById('boloFechaInicio').value = '';
+                document.getElementById('boloFechaFin').value = '';
+                document.getElementById('reglaDescanso').checked = true;
+                document.getElementById('reglaJornadaExtra').checked = true;
+            },
+
+            openBoloModal() {
+                this.resetBoloForm();
+                document.getElementById('boloModal').classList.add('active');
+            },
+
+            closeBoloModal() {
+                document.getElementById('boloModal').classList.remove('active');
+                this.resetBoloForm();
+            },
+
+            saveBolo(event) {
+                event.preventDefault();
+
+                const editingBoloId = document.getElementById('editingBoloId').value;
+                const nombre = document.getElementById('boloNombre').value;
+                const tipo_jornada = parseInt(document.getElementById('boloTipo').value);
+                const fecha_inicio = document.getElementById('boloFechaInicio').value;
+                const fecha_fin = document.getElementById('boloFechaFin').value;
+                const regla_descanso = document.getElementById('reglaDescanso').checked;
+                const regla_jornada_extra = document.getElementById('reglaJornadaExtra').checked;
+
+                if (fecha_fin < fecha_inicio) {
+                    alert('La fecha fin no puede ser anterior a la fecha inicio.');
+                    return;
+                }
+
+                if (editingBoloId) {
+                    const boloId = parseInt(editingBoloId);
+                    const bolo = state.bolos.find(b => b.id === boloId);
+                    if (!bolo) return;
+
+                    bolo.nombre = nombre;
+                    bolo.tipo_jornada = tipo_jornada;
+                    bolo.fecha_inicio = fecha_inicio;
+                    bolo.fecha_fin = fecha_fin;
+                    bolo.regla_descanso = regla_descanso;
+                    bolo.regla_jornada_extra = regla_jornada_extra;
+
+                    const jornadasExistentes = state.jornadas[boloId] || [];
+                    const jornadasPorFecha = Object.fromEntries(jornadasExistentes.map(j => [j.fecha, j]));
+                    const nuevasJornadas = [];
+
+                    const start = new Date(fecha_inicio);
+                    const end = new Date(fecha_fin);
+                    let current = new Date(start);
+                    let dayCount = 0;
+
+                    while (current <= end) {
+                        const fecha = calculations.formatDate(current);
+                        const existente = jornadasPorFecha[fecha];
+
+                        nuevasJornadas.push(existente ? {
+                            ...existente,
+                            id: `${boloId}-${dayCount}`,
+                            bolo_id: boloId,
+                            fecha
+                        } : {
+                            id: `${boloId}-${dayCount}`,
+                            bolo_id: boloId,
+                            fecha,
+                            hora_entrada: null,
+                            hora_salida: null,
+                            minutos_trabajados: 0,
+                            minutosExtrasIndividuales: 0,
+                            horasExtraAFacturar: 0,
+                            jornadasExtras: 0,
+                            jornadasExtrasPorDescanso: 0,
+                            jornadasExtrasPorAcumuladas: 0,
+                            descanso_insuficiente: false,
+                            aviso_descanso: null
+                        });
+
+                        current.setDate(current.getDate() + 1);
+                        dayCount++;
+                    }
+
+                    state.jornadas[boloId] = nuevasJornadas;
+                    procesarBolo(boloId);
+                    storage.saveState();
+                    this.closeBoloModal();
+                    this.openBoloDetail(boloId);
+                    return;
+                }
+
+                const bolo = {
+                    id: Date.now(),
+                    nombre,
+                    tipo_jornada,
+                    fecha_inicio,
+                    fecha_fin,
+                    estado: 'activo',
+                    regla_descanso,
+                    regla_jornada_extra,
+                    minutosExtrasGlobalBolsa: 0
+                };
+
+                state.bolos.push(bolo);
+                state.jornadas[bolo.id] = [];
+
+                const start = new Date(bolo.fecha_inicio);
+                const end = new Date(bolo.fecha_fin);
+                let current = new Date(start);
+                let dayCount = 0;
+
+                while (current <= end) {
+                    state.jornadas[bolo.id].push({
+                        id: `${bolo.id}-${dayCount}`,
+                        bolo_id: bolo.id,
+                        fecha: calculations.formatDate(current),
+                        hora_entrada: null,
+                        hora_salida: null,
+                        minutos_trabajados: 0,
+                        minutosExtrasIndividuales: 0,
+                        horasExtraAFacturar: 0,
+                        jornadasExtras: 0,
+                        jornadasExtrasPorDescanso: 0,
+                        jornadasExtrasPorAcumuladas: 0,
+                        descanso_insuficiente: false,
+                        aviso_descanso: null
+                    });
+
+                    current.setDate(current.getDate() + 1);
+                    dayCount++;
+                }
+
+                storage.saveState();
+                this.closeBoloModal();
+                this.openBoloDetail(bolo.id);
+            },
+
+            editBolo(boloId) {
+                const bolo = state.bolos.find(b => b.id === boloId);
+                if (!bolo) return;
+
+                document.getElementById('editingBoloId').value = bolo.id;
+                document.getElementById('boloModalTitle').textContent = 'Editar Bolo';
+                document.getElementById('boloSubmitBtn').textContent = 'Guardar cambios';
+                document.getElementById('boloNombre').value = bolo.nombre;
+                document.getElementById('boloTipo').value = bolo.tipo_jornada;
+                document.getElementById('boloFechaInicio').value = bolo.fecha_inicio;
+                document.getElementById('boloFechaFin').value = bolo.fecha_fin;
+                document.getElementById('reglaDescanso').checked = bolo.regla_descanso;
+                document.getElementById('reglaJornadaExtra').checked = bolo.regla_jornada_extra;
+
+                document.getElementById('boloModal').classList.add('active');
+            },
+
+            deleteBolo(boloId) {
+                if (confirm('¿Eliminar este bolo y todas sus jornadas?')) {
+                    const index = state.bolos.findIndex(b => b.id === boloId);
+                    if (index !== -1) {
+                        state.bolos.splice(index, 1);
+                        delete state.jornadas[boloId];
+                        storage.saveState();
+                        render();
+                    }
+                }
+            },
+
+            openBoloDetail(boloId) {
+                state.currentView = 'detail';
+                state.currentBoloId = boloId;
+                storage.saveState();
+                render();
+            },
+
+            goHome() {
+                state.currentView = 'list';
+                state.currentBoloId = null;
+                storage.saveState();
+                render();
+            },
+
+            openJornadaModal(jornadaId, boloId) {
+                const jornada = state.jornadas[boloId].find(j => j.id === jornadaId);
+                if (!jornada) return;
+
+                document.getElementById('jornadaId').value = jornadaId;
+                document.getElementById('boloIdHidden').value = boloId;
+                document.getElementById('jornadaFecha').value = jornada.fecha;
+                document.getElementById('jornadaEntrada').value = jornada.hora_entrada || '';
+                document.getElementById('jornadaSalida').value = jornada.hora_salida || '';
+
+                this.updateJornadaCalculos();
+                document.getElementById('jornadaModal').classList.add('active');
+            },
+
+            closeJornadaModal() {
+                document.getElementById('jornadaModal').classList.remove('active');
+            },
+
+            updateJornadaCalculos() {
+                const entrada = document.getElementById('jornadaEntrada').value;
+                const salida = document.getElementById('jornadaSalida').value;
+                const boloId = parseInt(document.getElementById('boloIdHidden').value);
+                const bolo = state.bolos.find(b => b.id === boloId);
+
+                let html = '';
+                if (entrada && salida && bolo) {
+                    const calc = calculations.calculateJornada(entrada, salida, bolo.tipo_jornada);
+                    html = `
+                        <div class="alert alert-warning">
+                            <div>
+                                <strong>Horas Trabajadas:</strong> ${calc.horasTrabajadas}<br>
+                                <strong>Horas Extra:</strong> ${calc.horasExtras}
+                                ${calc.cruzaMedianoche ? '<br><strong>Nota:</strong> salida al día siguiente (+1d)' : ''}
+                            </div>
+                        </div>
+                    `;
+                }
+                document.getElementById('jornadaCalculos').innerHTML = html;
+            },
+
+            saveJornada(event) {
+                event.preventDefault();
+
+                const jornadaId = document.getElementById('jornadaId').value;
+                const boloId = parseInt(document.getElementById('boloIdHidden').value);
+                const entrada = document.getElementById('jornadaEntrada').value;
+                const salida = document.getElementById('jornadaSalida').value;
+
+                const jornada = state.jornadas[boloId].find(j => j.id === jornadaId);
+                const bolo = state.bolos.find(b => b.id === boloId);
+
+                if (!jornada || !bolo) return;
+
+                const calc = calculations.calculateJornada(entrada, salida, bolo.tipo_jornada);
+
+                jornada.hora_entrada = entrada;
+                jornada.hora_salida = salida;
+                jornada.minutos_trabajados = calc.minutosTrabajados;
+                jornada.minutosExtrasIndividuales = calc.minutosExtras;
+
+                procesarBolo(boloId);
+                this.closeJornadaModal();
+                this.openBoloDetail(boloId);
+            },
+
+            deleteJornada() {
+                if (confirm('¿Eliminar esta jornada?')) {
+                    const boloId = parseInt(document.getElementById('boloIdHidden').value);
+                    const jornadaId = document.getElementById('jornadaId').value;
+
+                    const index = state.jornadas[boloId].findIndex(j => j.id === jornadaId);
+                    if (index !== -1) {
+                        const jornada = state.jornadas[boloId][index];
+                        jornada.hora_entrada = null;
+                        jornada.hora_salida = null;
+                        jornada.minutos_trabajados = 0;
+                        jornada.minutosExtrasIndividuales = 0;
+                        
+                        procesarBolo(boloId);
+                        storage.saveState();
+                        this.closeJornadaModal();
+                        this.openBoloDetail(boloId);
+                    }
+                }
+            },
+
+            triggerImportBackup() {
+                document.getElementById('backupImportInput').click();
+            },
+
+            exportBackup() {
+                const backup = {
+                    app: 'Bolo Tracker',
+                    version: '7.0',
+                    exportedAt: new Date().toISOString(),
+                    data: {
+                        bolos: state.bolos,
+                        jornadas: state.jornadas,
+                        theme: state.theme
+                    }
+                };
+
+                const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `bolo-tracker-backup-${new Date().toISOString().split('T')[0]}.json`;
+                link.click();
+            },
+
+            importBackup(event) {
+                const file = event.target.files?.[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const parsed = JSON.parse(e.target.result);
+                        const payload = parsed.data ? parsed.data : parsed;
+
+                        if (!Array.isArray(payload.bolos) || typeof payload.jornadas !== 'object') {
+                            throw new Error('Formato de backup no válido');
+                        }
+
+                        if (!confirm('¿Importar backup y sustituir los datos actuales?')) {
+                            event.target.value = '';
+                            return;
+                        }
+
+                        state.bolos = payload.bolos || [];
+                        state.jornadas = payload.jornadas || {};
+                        state.theme = payload.theme || 'light';
+                        state.currentView = 'list';
+                        state.currentBoloId = null;
+                        state.currentTab = 'bolos';
+
+                        state.bolos.forEach(bolo => procesarBolo(bolo.id));
+
+                        theme.init();
+                        storage.saveState();
+                        render();
+                        alert('Backup importado correctamente.');
+                    } catch (error) {
+                        alert(`No se pudo importar el backup: ${error.message}`);
+                    } finally {
+                        event.target.value = '';
+                    }
+                };
+
+                reader.readAsText(file);
+            },
+
+            exportBoloCSV(boloId) {
+                const bolo = state.bolos.find(b => b.id === boloId);
+                const jornadas = state.jornadas[boloId] || [];
+
+                let csv = 'Bolo Tracker v7.0 - Exportación\n';
+                csv += `Bolo,${bolo.nombre}\n`;
+                csv += `Tipo Jornada,${bolo.tipo_jornada}h\n`;
+                csv += `Período,${bolo.fecha_inicio} a ${bolo.fecha_fin}\n`;
+                csv += `Exportado,${new Date().toLocaleString('es-ES')}\n\n`;
+
+                csv += 'Fecha,Entrada,Salida,Horas,Extras Ind.,A Facturar,JE Descanso,JE Acum.,Total JE\n';
+
+                jornadas.forEach(j => {
+                    csv += `${j.fecha},${j.hora_entrada || '-'},${j.hora_salida || '-'},${j.hora_entrada ? calculations.minutesToHours(j.minutos_trabajados) : '-'},${j.minutosExtrasIndividuales > 0 ? calculations.minutesToHours(j.minutosExtrasIndividuales) : '-'},${j.horasExtraAFacturar > 0 ? calculations.minutesToHours(j.horasExtraAFacturar) : '-'},${j.jornadasExtrasPorDescanso || '-'},${j.jornadasExtrasPorAcumuladas || '-'},${j.jornadasExtras || '-'}\n`;
+                });
+
+                const totalMin = jornadas.reduce((s, j) => s + (j.minutos_trabajados || 0), 0);
+                const totalExt = jornadas.reduce((s, j) => s + (j.minutosExtrasIndividuales || 0), 0);
+                const totalFact = jornadas.reduce((s, j) => s + (j.horasExtraAFacturar || 0), 0);
+                const totalJE = jornadas.reduce((s, j) => s + (j.jornadasExtras || 0), 0);
+
+                csv += `\n,,,${calculations.minutesToHours(totalMin)},${calculations.minutesToHours(totalExt)},${calculations.minutesToHours(totalFact)},,${totalJE}`;
+
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `${bolo.nombre}-${new Date().toISOString().split('T')[0]}.csv`;
+                link.click();
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            app.init();
+        });
+    </script>
+</body>
+</html>
