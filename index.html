@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Bolo Tracker v7.0 - Control de horas trabajadas con jornadas extra y facturación">
+    <meta name="description" content="Bolo Tracker v7.1 - Control de horas trabajadas con jornadas extra y facturación">
     <meta name="theme-color" content="#208090">
-    <title>Bolo Tracker v7.0</title>
+    <title>Bolo Tracker v7.1</title>
     <style>
         :root {
             --color-primary: #208090;
@@ -549,10 +549,44 @@
         }
         .install-btn.visible { display: inline-flex; align-items: center; gap: var(--spacing-sm); }
 
+        .install-help {
+            margin-top: var(--spacing-sm);
+            font-size: 0.9rem;
+            color: rgba(255,255,255,0.92);
+            display: none;
+        }
+
+        .update-modal .modal-content {
+            max-width: 680px;
+        }
+
+        .safety-box {
+            background: rgba(168, 75, 47, 0.08);
+            border: 1px solid rgba(168, 75, 47, 0.35);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-md);
+            margin: var(--spacing-md) 0;
+        }
+
+        .backup-status {
+            font-size: 0.92rem;
+            color: var(--color-text-light);
+            margin-top: var(--spacing-sm);
+        }
+
+        .update-steps {
+            margin: var(--spacing-md) 0;
+            padding-left: 1.2rem;
+        }
+
+        .update-steps li {
+            margin-bottom: 0.4rem;
+        }
+
     </style>
     <link rel="manifest" href="./manifest.webmanifest">
-    <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
-    <link rel="apple-touch-icon" href="./icons/apple-touch-icon-180.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+    <link rel="apple-touch-icon" href="./apple-touch-icon-180.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Bolo Tracker">
@@ -573,13 +607,6 @@
             currentBoloId: null,
             currentTab: 'bolos'
         };
-
-        const APP_VERSION = '7.1';
-        const BACKUP_CACHE_KEY = 'boloTrackerLastForcedBackup';
-        const BACKUP_META_KEY = 'boloTrackerLastForcedBackupMeta';
-        const PENDING_RESTORE_KEY = 'boloTrackerPendingRestoreOnUpdate';
-        let pendingSWRegistration = null;
-        let backupGeneratedForUpdate = false;
 
         const storage = {
             saveState() {
@@ -817,100 +844,6 @@
             storage.saveState();
         }
 
-        function buildBackupPayload() {
-            return {
-                app: 'Bolo Tracker',
-                version: APP_VERSION,
-                exportedAt: new Date().toISOString(),
-                data: {
-                    bolos: state.bolos,
-                    jornadas: state.jornadas,
-                    theme: state.theme
-                }
-            };
-        }
-
-        function sortBolosDescByDate(list) {
-            return [...list].sort((a, b) => {
-                const dateA = `${a.fecha_inicio || ''}|${a.fecha_fin || ''}`;
-                const dateB = `${b.fecha_inicio || ''}|${b.fecha_fin || ''}`;
-                if (dateA < dateB) return 1;
-                if (dateA > dateB) return -1;
-                return (b.id || 0) - (a.id || 0);
-            });
-        }
-
-        function cacheForcedBackup(backup) {
-            localStorage.setItem(BACKUP_CACHE_KEY, JSON.stringify(backup));
-            localStorage.setItem(BACKUP_META_KEY, JSON.stringify({
-                version: backup.version,
-                exportedAt: backup.exportedAt
-            }));
-        }
-
-        function restoreCachedBackupAfterUpdate() {
-            const shouldRestore = sessionStorage.getItem(PENDING_RESTORE_KEY) === '1';
-            if (!shouldRestore) return false;
-
-            const raw = localStorage.getItem(BACKUP_CACHE_KEY);
-            if (!raw) {
-                sessionStorage.removeItem(PENDING_RESTORE_KEY);
-                return false;
-            }
-
-            try {
-                const parsed = JSON.parse(raw);
-                const payload = parsed.data ? parsed.data : parsed;
-
-                if (!Array.isArray(payload.bolos) || typeof payload.jornadas !== 'object') {
-                    throw new Error('Formato de backup no válido');
-                }
-
-                state.bolos = payload.bolos || [];
-                state.jornadas = payload.jornadas || {};
-                state.theme = payload.theme || 'light';
-                state.currentView = 'list';
-                state.currentBoloId = null;
-                state.currentTab = 'bolos';
-
-                state.bolos.forEach(bolo => procesarBolo(bolo.id));
-
-                storage.saveState();
-                sessionStorage.removeItem(PENDING_RESTORE_KEY);
-                return true;
-            } catch (error) {
-                console.error('No se pudo restaurar el backup automático tras actualizar:', error);
-                sessionStorage.removeItem(PENDING_RESTORE_KEY);
-                return false;
-            }
-        }
-
-        function getLastBackupMetaLabel() {
-            const raw = localStorage.getItem(BACKUP_META_KEY);
-            if (!raw) return 'Nunca';
-            try {
-                const meta = JSON.parse(raw);
-                return new Date(meta.exportedAt).toLocaleString('es-ES');
-            } catch (e) {
-                return 'Nunca';
-            }
-        }
-
-        function openUpdateModal() {
-            const modal = document.getElementById('updateModal');
-            if (!modal || updateModalAlreadyShown) return;
-            backupGeneratedForUpdate = false;
-            const updateBtn = document.getElementById('confirmUpdateBtn');
-            const status = document.getElementById('updateBackupStatus');
-            const lastBackup = document.getElementById('lastBackupInfo');
-
-            if (updateBtn) updateBtn.disabled = true;
-            if (status) status.textContent = 'Necesitas generar una copia antes de actualizar.';
-            if (lastBackup) lastBackup.textContent = getLastBackupMetaLabel();
-            updateModalAlreadyShown = true;
-            modal.classList.add('active');
-        }
-
         // ============================================================================
         // RENDER
         // ============================================================================
@@ -944,14 +877,16 @@
             root.innerHTML = `
                 <div class="header">
                     <div class="header-content">
-                        <h1>🏗️ Bolo Tracker v7.1</h1>
+                        <h1>🎛️ Bolo Tracker v7.1</h1>
                         <p>Control inteligente de horas, jornadas extra y facturación</p>
                         <div class="header-actions">
                             <button class="btn btn-primary" onclick="app.openBoloModal()">✨ Crear Nuevo Bolo</button>
                             <button class="btn btn-outline" onclick="app.switchTab('estadisticas')">📊 Estadísticas</button>
                             <button class="btn btn-outline" onclick="app.exportBackup()">💾 Backup JSON</button>
                             <button class="btn btn-outline" onclick="app.triggerImportBackup()">📂 Importar Backup</button>
+                            <button id="installBtn" class="install-btn" onclick="app.installPWA()">📲 Instalar app</button>
                         </div>
+                        <div id="installHelp" class="install-help"></div>
                     </div>
                     <button class="theme-toggle" onclick="app.toggleTheme()" title="Cambiar tema">
                         ${state.theme === 'light' ? '🌙 Dark' : '☀️ Light'}
@@ -967,8 +902,45 @@
             `;
         }
 
+
+        function renderUpdateModal() {
+            return `
+                <div id="updateModal" class="modal update-modal">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <div>
+                                <h2 class="card-title">🔐 Actualización segura disponible</h2>
+                                <p class="card-subtitle">Antes de aplicar la nueva versión, guarda una copia de seguridad automática para restauración inmediata.</p>
+                            </div>
+                        </div>
+
+                        <div class="safety-box">
+                            <strong>Aviso de seguridad</strong><br>
+                            Esta actualización no se aplicará hasta que generes una copia de seguridad local. Después, la app restaurará automáticamente esa última copia segura al recargar.
+                        </div>
+
+                        <ol class="update-steps">
+                            <li>Pulsa <strong>Guardar copia ahora</strong>.</li>
+                            <li>Espera al mensaje de copia generada.</li>
+                            <li>Pulsa <strong>Actualizar ahora</strong> para activar la nueva versión.</li>
+                        </ol>
+
+                        <div id="updateBackupStatus" class="backup-status">Copia obligatoria pendiente.</div>
+
+                        <div class="modal-footer">
+                            <button id="updateBackupBtn" class="btn btn-outline" onclick="app.generateForcedBackup()">💾 Guardar copia ahora</button>
+                            <button id="updateNowBtn" class="btn btn-primary" onclick="app.applyPendingUpdate()" disabled>🔄 Actualizar ahora</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
         function renderBolos() {
-            const activos = sortBolosDescByDate(state.bolos.filter(b => b.estado === 'activo'));
+            const activos = state.bolos.filter(b => b.estado === 'activo').sort((a, b) => {
+                const diff = new Date(b.fecha_inicio) - new Date(a.fecha_inicio);
+                return diff !== 0 ? diff : b.id - a.id;
+            });
             
             if (activos.length === 0) {
                 return `
@@ -1147,35 +1119,10 @@
             `;
         }
 
-        function renderUpdateModal() {
-            return `
-                <div id="updateModal" class="modal">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h2>Nueva versión disponible</h2>
-                        </div>
-                        <div class="alert alert-warning" style="margin-bottom: 16px;">
-                            Antes de actualizar, la app generará una copia de seguridad local en JSON.
-                        </div>
-                        <p style="margin-bottom: 12px;">
-                            Última copia forzada registrada: <strong id="lastBackupInfo">Nunca</strong>
-                        </p>
-                        <p id="updateBackupStatus" style="margin-bottom: 20px; color: var(--color-text-secondary);">
-                            Necesitas generar una copia antes de actualizar.
-                        </p>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-outline" onclick="app.generateForcedUpdateBackup()" id="updateBackupBtn">💾 Guardar copia ahora</button>
-                            <button type="button" class="btn btn-primary" onclick="app.applyPendingUpdate()" id="confirmUpdateBtn" disabled>Actualizar ahora</button>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
         function renderEstadisticas() {
             const filtro = document.getElementById('filtroEstado')?.value || 'todos';
             
-            let bolosFiltrados = sortBolosDescByDate(state.bolos);
+            let bolosFiltrados = state.bolos;
             if (filtro === 'activos') bolosFiltrados = state.bolos.filter(b => b.estado === 'activo');
             else if (filtro === 'completados') bolosFiltrados = state.bolos.filter(b => b.estado === 'completado');
 
@@ -1287,7 +1234,7 @@
                             <input type="hidden" id="editingBoloId">
                             <div class="form-group">
                                 <label class="form-label">Nombre del Bolo *</label>
-                                <input type="text" id="boloNombre" class="form-input" placeholder="Ej: Bolo LED Stage / Corporate Show / Setup Pleno" required autocomplete="off">
+                                <input type="text" id="boloNombre" class="form-input" placeholder="Ej: Bolo LED Stage" required autocomplete="off">
                             </div>
 
                             <div class="form-group">
@@ -1373,94 +1320,202 @@
         // APP CONTROLLER
         // ============================================================================
 
+
         let deferredInstallPrompt = null;
+        let swRegistration = null;
+        let updateModalShown = false;
+
+        const PWA_KEYS = {
+            forcedBackup: 'boloTrackerForcedBackup',
+            forcedBackupAt: 'boloTrackerForcedBackupAt',
+            updatePendingReload: 'boloTrackerUpdatePendingReload'
+        };
+
+        function isStandaloneMode() {
+            return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+        }
+
+        function detectBrowserName() {
+            const ua = navigator.userAgent || '';
+            if (/Firefox/i.test(ua)) return 'firefox';
+            if (/Edg/i.test(ua)) return 'edge';
+            if (/OPR|Opera/i.test(ua)) return 'opera';
+            if (navigator.brave) return 'brave';
+            if (/Chrome/i.test(ua)) return 'chrome';
+            if (/Safari/i.test(ua)) return 'safari';
+            return 'unknown';
+        }
+
+        function showInstallButton() {
+            const btn = document.getElementById('installBtn');
+            if (btn && !isStandaloneMode()) {
+                btn.classList.add('visible');
+            }
+        }
+
+        function hideInstallButton() {
+            const btn = document.getElementById('installBtn');
+            if (btn) btn.classList.remove('visible');
+        }
+
+        function setInstallHelp(message = '') {
+            const help = document.getElementById('installHelp');
+            if (!help) return;
+            help.textContent = message;
+            help.style.display = message ? 'block' : 'none';
+        }
+
+        function setUpdateBackupReady(isReady, exportedAt = null) {
+            const status = document.getElementById('updateBackupStatus');
+            const updateBtn = document.getElementById('updateNowBtn');
+            if (status) {
+                status.textContent = isReady
+                    ? `Copia segura generada${exportedAt ? ` (${new Date(exportedAt).toLocaleString('es-ES')})` : ''}. Ya puedes actualizar.`
+                    : 'Copia obligatoria pendiente.';
+            }
+            if (updateBtn) {
+                updateBtn.disabled = !isReady;
+            }
+        }
+
+        function openUpdateModal() {
+            if (updateModalShown || !navigator.serviceWorker?.controller) return;
+            const modal = document.getElementById('updateModal');
+            if (!modal) return;
+            updateModalShown = true;
+            setUpdateBackupReady(false);
+            modal.classList.add('active');
+        }
+
+        function closeUpdateModal() {
+            const modal = document.getElementById('updateModal');
+            if (modal) modal.classList.remove('active');
+        }
+
+        function buildBackupPayload() {
+            return {
+                app: 'Bolo Tracker',
+                version: '7.1',
+                exportedAt: new Date().toISOString(),
+                data: {
+                    bolos: state.bolos,
+                    jornadas: state.jornadas,
+                    theme: state.theme
+                }
+            };
+        }
+
+        function persistForcedBackup(backup) {
+            localStorage.setItem(PWA_KEYS.forcedBackup, JSON.stringify(backup));
+            localStorage.setItem(PWA_KEYS.forcedBackupAt, backup.exportedAt);
+        }
+
+        function downloadJsonBackup(backup) {
+            const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.href = url;
+            link.download = `bolo-tracker-backup-${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        function restoreForcedBackupIfPending() {
+            const pending = sessionStorage.getItem(PWA_KEYS.updatePendingReload);
+            if (pending !== '1') return;
+
+            sessionStorage.removeItem(PWA_KEYS.updatePendingReload);
+
+            const raw = localStorage.getItem(PWA_KEYS.forcedBackup);
+            if (!raw) return;
+
+            try {
+                const parsed = JSON.parse(raw);
+                const payload = parsed.data ? parsed.data : parsed;
+
+                if (!Array.isArray(payload.bolos) || typeof payload.jornadas !== 'object') {
+                    throw new Error('Formato de backup forzado no válido');
+                }
+
+                state.bolos = payload.bolos || [];
+                state.jornadas = payload.jornadas || {};
+                state.theme = payload.theme || 'light';
+                state.currentView = 'list';
+                state.currentBoloId = null;
+                state.currentTab = state.currentTab || 'bolos';
+
+                state.bolos.forEach(bolo => procesarBolo(bolo.id));
+                theme.init();
+                storage.saveState();
+            } catch (error) {
+                console.warn('No se pudo restaurar la última copia forzada:', error);
+            }
+        }
 
         function registerServiceWorker() {
-            if ('serviceWorker' in navigator) {
-                window.addEventListener('load', () => {
-                    navigator.serviceWorker.register('./sw.js').then((registration) => {
-                        pendingSWRegistration = registration;
+            if (!('serviceWorker' in navigator)) return;
 
-                        if (registration.waiting && navigator.serviceWorker.controller) {
-                            openUpdateModal();
-                        }
+            window.addEventListener('load', async () => {
+                try {
+                    swRegistration = await navigator.serviceWorker.register('./sw.js');
 
-                        registration.addEventListener('updatefound', () => {
-                            const newWorker = registration.installing;
-                            if (!newWorker) return;
-
-                            newWorker.addEventListener('statechange', () => {
-                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                    pendingSWRegistration = registration;
-                                    openUpdateModal();
-                                }
-                            });
-                        });
-                    }).catch(err => {
-                        console.warn('Service Worker no registrado:', err);
-                    });
-                });
-
-                navigator.serviceWorker.addEventListener('controllerchange', () => {
-                    if (sessionStorage.getItem(PENDING_RESTORE_KEY) === '1') {
-                        window.location.reload();
+                    if (swRegistration.waiting && navigator.serviceWorker.controller) {
+                        openUpdateModal();
                     }
-                });
-            }
+
+                    swRegistration.addEventListener('updatefound', () => {
+                        const newWorker = swRegistration.installing;
+                        if (!newWorker) return;
+
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                openUpdateModal();
+                            }
+                        });
+                    });
+
+                    navigator.serviceWorker.addEventListener('controllerchange', () => {
+                        if (sessionStorage.getItem(PWA_KEYS.updatePendingReload) === '1') {
+                            window.location.reload();
+                        }
+                    });
+                } catch (err) {
+                    console.warn('Service Worker no registrado:', err);
+                }
+            });
         }
 
         function setupPWAInstallPrompt() {
             window.addEventListener('beforeinstallprompt', (event) => {
                 event.preventDefault();
                 deferredInstallPrompt = event;
-                const btn = document.getElementById('installBtn');
-                if (btn) btn.classList.add('visible');
+                setInstallHelp('');
+                showInstallButton();
             });
 
             window.addEventListener('appinstalled', () => {
                 deferredInstallPrompt = null;
-                const btn = document.getElementById('installBtn');
-                if (btn) btn.classList.remove('visible');
+                hideInstallButton();
+                setInstallHelp('App instalada correctamente.');
+                setTimeout(() => setInstallHelp(''), 2500);
             });
         }
 
         const app = {
             init() {
                 storage.loadState();
-                restoreCachedBackupAfterUpdate();
+                restoreForcedBackupIfPending();
                 if (state.currentView === 'detail' && (!state.currentBoloId || !state.bolos.some(b => b.id === state.currentBoloId))) {
                     state.currentView = 'list';
                     state.currentBoloId = null;
                 }
                 theme.init();
                 render();
-            },
-
-            generateForcedUpdateBackup() {
-                const backup = buildBackupPayload();
-                cacheForcedBackup(backup);
-
-                const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8;' });
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = `bolo-tracker-backup-${new Date().toISOString().split('T')[0]}-pre-update.json`;
-                link.click();
-                setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-
-                backupGeneratedForUpdate = true;
-                const status = document.getElementById('updateBackupStatus');
-                const updateBtn = document.getElementById('confirmUpdateBtn');
-                const lastBackup = document.getElementById('lastBackupInfo');
-
-                if (status) status.textContent = state.bolos.length ? 'Copia generada. Ya puedes actualizar.' : 'La app está vacía, pero la copia de seguridad preventiva ya se ha generado. Ya puedes actualizar.';
-                if (updateBtn) updateBtn.disabled = false;
-                if (lastBackup) lastBackup.textContent = getLastBackupMetaLabel();
-            },
-
-            applyPendingUpdate() {
-                if (!pendingSWRegistration || !pendingSWRegistration.waiting || !backupGeneratedForUpdate) return;
-                sessionStorage.setItem(PENDING_RESTORE_KEY, '1');
-                pendingSWRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                registerServiceWorker();
+                setupPWAInstallPrompt();
+                if (isStandaloneMode()) {
+                    hideInstallButton();
+                }
             },
 
             switchTab(tabName) {
@@ -1476,12 +1531,51 @@
             },
 
             async installPWA() {
-                if (!deferredInstallPrompt) return;
-                deferredInstallPrompt.prompt();
-                await deferredInstallPrompt.userChoice;
-                deferredInstallPrompt = null;
-                const btn = document.getElementById('installBtn');
-                if (btn) btn.classList.remove('visible');
+                if (isStandaloneMode()) {
+                    hideInstallButton();
+                    return;
+                }
+
+                if (deferredInstallPrompt) {
+                    deferredInstallPrompt.prompt();
+                    const choice = await deferredInstallPrompt.userChoice;
+                    if (choice.outcome === 'accepted') {
+                        hideInstallButton();
+                        setInstallHelp('Instalación iniciada.');
+                        setTimeout(() => setInstallHelp(''), 2500);
+                    }
+                    deferredInstallPrompt = null;
+                    return;
+                }
+
+                const browser = detectBrowserName();
+                if (browser === 'firefox') {
+                    setInstallHelp('Firefox no ofrece instalación PWA completa como Chrome o Edge.');
+                } else if (browser === 'brave') {
+                    setInstallHelp('En Brave: menú del navegador → Instalar aplicación.');
+                } else if (browser === 'safari') {
+                    setInstallHelp('En Safari/iPhone: Compartir → Añadir a pantalla de inicio.');
+                } else {
+                    setInstallHelp('Usa el menú del navegador para instalar la app.');
+                }
+            },
+
+            generateForcedBackup() {
+                const backup = buildBackupPayload();
+                persistForcedBackup(backup);
+                downloadJsonBackup(backup);
+                setUpdateBackupReady(true, backup.exportedAt);
+            },
+
+            applyPendingUpdate() {
+                if (!swRegistration?.waiting) return;
+                if (!localStorage.getItem(PWA_KEYS.forcedBackup)) {
+                    setUpdateBackupReady(false);
+                    return;
+                }
+                sessionStorage.setItem(PWA_KEYS.updatePendingReload, '1');
+                swRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                closeUpdateModal();
             },
 
             actualizarEstadisticas() {
@@ -1774,13 +1868,7 @@
 
             exportBackup() {
                 const backup = buildBackupPayload();
-                cacheForcedBackup(backup);
-
-                const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8;' });
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = `bolo-tracker-backup-${new Date().toISOString().split('T')[0]}.json`;
-                link.click();
+                downloadJsonBackup(backup);
             },
 
             importBackup(event) {

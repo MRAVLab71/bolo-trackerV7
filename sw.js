@@ -1,23 +1,17 @@
-const CACHE_NAME = 'bolo-tracker-v7-pwa-v2';
+const CACHE_NAME = 'bolo-tracker-v7-1-pwa-v3';
 const ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  './icons/apple-touch-icon-180.png'
+  './icon-192.png',
+  './icon-512.png',
+  './apple-touch-icon-180.png'
 ];
 
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
   );
-});
-
-self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
 });
 
 self.addEventListener('activate', event => {
@@ -28,22 +22,33 @@ self.addEventListener('activate', event => {
   );
 });
 
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
 
+  const isNavigationRequest = event.request.mode === 'navigate';
+
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) return cached;
-      return fetch(event.request)
-        .then(response => {
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response;
-          }
+    fetch(event.request)
+      .then(response => {
+        if (response && response.status === 200) {
           const copy = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
-          return response;
-        })
-        .catch(() => caches.match('./index.html'));
-    })
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy)).catch(() => {});
+        }
+        return response;
+      })
+      .catch(async () => {
+        const cached = await caches.match(event.request);
+        if (cached) return cached;
+        if (isNavigationRequest) {
+          return caches.match('./index.html');
+        }
+        throw new Error('Recurso no disponible en caché');
+      })
   );
 });
