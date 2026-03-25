@@ -536,7 +536,27 @@
                 margin-bottom: var(--spacing-sm);
             }
         }
+    
+        .install-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            color: white;
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-weight: 600;
+            display: none;
+        }
+        .install-btn.visible { display: inline-flex; align-items: center; gap: var(--spacing-sm); }
+
     </style>
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon-180.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Bolo Tracker">
+    <meta name="mobile-web-app-capable" content="yes">
 </head>
 <body>
     <div id="root"></div>
@@ -553,6 +573,13 @@
             currentBoloId: null,
             currentTab: 'bolos'
         };
+
+        const APP_VERSION = '7.1';
+        const BACKUP_CACHE_KEY = 'boloTrackerLastForcedBackup';
+        const BACKUP_META_KEY = 'boloTrackerLastForcedBackupMeta';
+        const PENDING_RESTORE_KEY = 'boloTrackerPendingRestoreOnUpdate';
+        let pendingSWRegistration = null;
+        let backupGeneratedForUpdate = false;
 
         const storage = {
             saveState() {
@@ -790,6 +817,100 @@
             storage.saveState();
         }
 
+        function buildBackupPayload() {
+            return {
+                app: 'Bolo Tracker',
+                version: APP_VERSION,
+                exportedAt: new Date().toISOString(),
+                data: {
+                    bolos: state.bolos,
+                    jornadas: state.jornadas,
+                    theme: state.theme
+                }
+            };
+        }
+
+        function sortBolosDescByDate(list) {
+            return [...list].sort((a, b) => {
+                const dateA = `${a.fecha_inicio || ''}|${a.fecha_fin || ''}`;
+                const dateB = `${b.fecha_inicio || ''}|${b.fecha_fin || ''}`;
+                if (dateA < dateB) return 1;
+                if (dateA > dateB) return -1;
+                return (b.id || 0) - (a.id || 0);
+            });
+        }
+
+        function cacheForcedBackup(backup) {
+            localStorage.setItem(BACKUP_CACHE_KEY, JSON.stringify(backup));
+            localStorage.setItem(BACKUP_META_KEY, JSON.stringify({
+                version: backup.version,
+                exportedAt: backup.exportedAt
+            }));
+        }
+
+        function restoreCachedBackupAfterUpdate() {
+            const shouldRestore = sessionStorage.getItem(PENDING_RESTORE_KEY) === '1';
+            if (!shouldRestore) return false;
+
+            const raw = localStorage.getItem(BACKUP_CACHE_KEY);
+            if (!raw) {
+                sessionStorage.removeItem(PENDING_RESTORE_KEY);
+                return false;
+            }
+
+            try {
+                const parsed = JSON.parse(raw);
+                const payload = parsed.data ? parsed.data : parsed;
+
+                if (!Array.isArray(payload.bolos) || typeof payload.jornadas !== 'object') {
+                    throw new Error('Formato de backup no válido');
+                }
+
+                state.bolos = payload.bolos || [];
+                state.jornadas = payload.jornadas || {};
+                state.theme = payload.theme || 'light';
+                state.currentView = 'list';
+                state.currentBoloId = null;
+                state.currentTab = 'bolos';
+
+                state.bolos.forEach(bolo => procesarBolo(bolo.id));
+
+                storage.saveState();
+                sessionStorage.removeItem(PENDING_RESTORE_KEY);
+                return true;
+            } catch (error) {
+                console.error('No se pudo restaurar el backup automático tras actualizar:', error);
+                sessionStorage.removeItem(PENDING_RESTORE_KEY);
+                return false;
+            }
+        }
+
+        function getLastBackupMetaLabel() {
+            const raw = localStorage.getItem(BACKUP_META_KEY);
+            if (!raw) return 'Nunca';
+            try {
+                const meta = JSON.parse(raw);
+                return new Date(meta.exportedAt).toLocaleString('es-ES');
+            } catch (e) {
+                return 'Nunca';
+            }
+        }
+
+        function openUpdateModal() {
+            const modal = document.getElementById('updateModal');
+            if (!modal || updateModalAlreadyShown) return;
+            backupGeneratedForUpdate = false;
+            const updateBtn = document.getElementById('confirmUpdateBtn');
+            const status = document.getElementById('updateBackupStatus');
+            const lastBackup = document.getElementById('lastBackupInfo');
+
+            if (updateBtn) updateBtn.disabled = true;
+            if (status) status.textContent = 'Necesitas generar una copia antes de actualizar.';
+            if (lastBackup) lastBackup.textContent = getLastBackupMetaLabel();
+            updateModalAlreadyShown = true;
+            modal.classList.add('active');
+        }
+
         // ============================================================================
         // RENDER
         // ============================================================================
@@ -823,7 +944,7 @@
             root.innerHTML = `
                 <div class="header">
                     <div class="header-content">
-                        <h1>🏗️ Bolo Tracker v7.0</h1>
+                        <h1>🏗️ Bolo Tracker v7.1</h1>
                         <p>Control inteligente de horas, jornadas extra y facturación</p>
                         <div class="header-actions">
                             <button class="btn btn-primary" onclick="app.openBoloModal()">✨ Crear Nuevo Bolo</button>
@@ -841,12 +962,13 @@
 
                 ${renderBoloModal()}
                 ${renderJornadaModal()}
+                ${renderUpdateModal()}
                 <input type="file" id="backupImportInput" accept="application/json,.json" style="display:none" onchange="app.importBackup(event)">
             `;
         }
 
         function renderBolos() {
-            const activos = state.bolos.filter(b => b.estado === 'activo');
+            const activos = sortBolosDescByDate(state.bolos.filter(b => b.estado === 'activo'));
             
             if (activos.length === 0) {
                 return `
@@ -1025,10 +1147,35 @@
             `;
         }
 
+        function renderUpdateModal() {
+            return `
+                <div id="updateModal" class="modal">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h2>Nueva versión disponible</h2>
+                        </div>
+                        <div class="alert alert-warning" style="margin-bottom: 16px;">
+                            Antes de actualizar, la app generará una copia de seguridad local en JSON.
+                        </div>
+                        <p style="margin-bottom: 12px;">
+                            Última copia forzada registrada: <strong id="lastBackupInfo">Nunca</strong>
+                        </p>
+                        <p id="updateBackupStatus" style="margin-bottom: 20px; color: var(--color-text-secondary);">
+                            Necesitas generar una copia antes de actualizar.
+                        </p>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline" onclick="app.generateForcedUpdateBackup()" id="updateBackupBtn">💾 Guardar copia ahora</button>
+                            <button type="button" class="btn btn-primary" onclick="app.applyPendingUpdate()" id="confirmUpdateBtn" disabled>Actualizar ahora</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
         function renderEstadisticas() {
             const filtro = document.getElementById('filtroEstado')?.value || 'todos';
             
-            let bolosFiltrados = state.bolos;
+            let bolosFiltrados = sortBolosDescByDate(state.bolos);
             if (filtro === 'activos') bolosFiltrados = state.bolos.filter(b => b.estado === 'activo');
             else if (filtro === 'completados') bolosFiltrados = state.bolos.filter(b => b.estado === 'completado');
 
@@ -1140,7 +1287,7 @@
                             <input type="hidden" id="editingBoloId">
                             <div class="form-group">
                                 <label class="form-label">Nombre del Bolo *</label>
-                                <input type="text" id="boloNombre" class="form-input" placeholder="Ej: Reforma Casa García" required autocomplete="off">
+                                <input type="text" id="boloNombre" class="form-input" placeholder="Ej: Bolo LED Stage / Corporate Show / Setup Pleno" required autocomplete="off">
                             </div>
 
                             <div class="form-group">
@@ -1225,15 +1372,95 @@
         // ============================================================================
         // APP CONTROLLER
         // ============================================================================
+
+        let deferredInstallPrompt = null;
+
+        function registerServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('./sw.js').then((registration) => {
+                        pendingSWRegistration = registration;
+
+                        if (registration.waiting && navigator.serviceWorker.controller) {
+                            openUpdateModal();
+                        }
+
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            if (!newWorker) return;
+
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    pendingSWRegistration = registration;
+                                    openUpdateModal();
+                                }
+                            });
+                        });
+                    }).catch(err => {
+                        console.warn('Service Worker no registrado:', err);
+                    });
+                });
+
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    if (sessionStorage.getItem(PENDING_RESTORE_KEY) === '1') {
+                        window.location.reload();
+                    }
+                });
+            }
+        }
+
+        function setupPWAInstallPrompt() {
+            window.addEventListener('beforeinstallprompt', (event) => {
+                event.preventDefault();
+                deferredInstallPrompt = event;
+                const btn = document.getElementById('installBtn');
+                if (btn) btn.classList.add('visible');
+            });
+
+            window.addEventListener('appinstalled', () => {
+                deferredInstallPrompt = null;
+                const btn = document.getElementById('installBtn');
+                if (btn) btn.classList.remove('visible');
+            });
+        }
+
         const app = {
             init() {
                 storage.loadState();
+                restoreCachedBackupAfterUpdate();
                 if (state.currentView === 'detail' && (!state.currentBoloId || !state.bolos.some(b => b.id === state.currentBoloId))) {
                     state.currentView = 'list';
                     state.currentBoloId = null;
                 }
                 theme.init();
                 render();
+            },
+
+            generateForcedUpdateBackup() {
+                const backup = buildBackupPayload();
+                cacheForcedBackup(backup);
+
+                const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `bolo-tracker-backup-${new Date().toISOString().split('T')[0]}-pre-update.json`;
+                link.click();
+                setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+
+                backupGeneratedForUpdate = true;
+                const status = document.getElementById('updateBackupStatus');
+                const updateBtn = document.getElementById('confirmUpdateBtn');
+                const lastBackup = document.getElementById('lastBackupInfo');
+
+                if (status) status.textContent = state.bolos.length ? 'Copia generada. Ya puedes actualizar.' : 'La app está vacía, pero la copia de seguridad preventiva ya se ha generado. Ya puedes actualizar.';
+                if (updateBtn) updateBtn.disabled = false;
+                if (lastBackup) lastBackup.textContent = getLastBackupMetaLabel();
+            },
+
+            applyPendingUpdate() {
+                if (!pendingSWRegistration || !pendingSWRegistration.waiting || !backupGeneratedForUpdate) return;
+                sessionStorage.setItem(PENDING_RESTORE_KEY, '1');
+                pendingSWRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
             },
 
             switchTab(tabName) {
@@ -1246,6 +1473,15 @@
 
             toggleTheme() {
                 theme.toggle();
+            },
+
+            async installPWA() {
+                if (!deferredInstallPrompt) return;
+                deferredInstallPrompt.prompt();
+                await deferredInstallPrompt.userChoice;
+                deferredInstallPrompt = null;
+                const btn = document.getElementById('installBtn');
+                if (btn) btn.classList.remove('visible');
             },
 
             actualizarEstadisticas() {
@@ -1537,16 +1773,8 @@
             },
 
             exportBackup() {
-                const backup = {
-                    app: 'Bolo Tracker',
-                    version: '7.0',
-                    exportedAt: new Date().toISOString(),
-                    data: {
-                        bolos: state.bolos,
-                        jornadas: state.jornadas,
-                        theme: state.theme
-                    }
-                };
+                const backup = buildBackupPayload();
+                cacheForcedBackup(backup);
 
                 const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8;' });
                 const link = document.createElement('a');
@@ -1601,7 +1829,7 @@
                 const bolo = state.bolos.find(b => b.id === boloId);
                 const jornadas = state.jornadas[boloId] || [];
 
-                let csv = 'Bolo Tracker v7.0 - Exportación\n';
+                let csv = 'Bolo Tracker v7.1 - Exportación\n';
                 csv += `Bolo,${bolo.nombre}\n`;
                 csv += `Tipo Jornada,${bolo.tipo_jornada}h\n`;
                 csv += `Período,${bolo.fecha_inicio} a ${bolo.fecha_fin}\n`;
